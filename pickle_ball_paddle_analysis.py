@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 
 # Set page title and layout
 st.set_page_config(
@@ -37,7 +35,6 @@ def massage_data(data_df):
 
 
 # Function to load and process data
-@st.cache_data
 def load_data():
     FILE_PATH = '/Users/jerome/projects/pickle_ball_paddle_analysis/john_knew_pickleball_paddle_database.tsv'
     try:
@@ -147,82 +144,6 @@ if categorical_cols:
         st.write("Not enough categories with sufficient data for comparison")
 else:
     st.write("No categorical features found in the dataset")
-
-# Advanced analysis - PCA
-st.header("Principal Component Analysis")
-st.write("Explore the main dimensions of variance in the data")
-
-if len(numeric_cols) > 2:
-    pca_features = st.multiselect(
-        "Select features for PCA:",
-        numeric_cols,
-        default=numeric_cols[:5] if len(numeric_cols) > 5 else numeric_cols
-    )
-
-    if len(pca_features) > 2:
-        # Prepare data for PCA
-        X = df[pca_features].copy()
-
-        # Handle missing values
-        X = X.fillna(X.mean())
-
-        # Standardize the data
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        # Perform PCA
-        pca = PCA()
-        pca_result = pca.fit_transform(X_scaled)
-
-        # Create a DataFrame with the principal components
-        pca_df = pd.DataFrame(
-            data=pca_result[:, :2],
-            columns=['PC1', 'PC2']
-        )
-
-        # Add categories if selected
-        if categorical_cols:
-            color_by_pca = st.selectbox("Color PCA by:", ["None"] + categorical_cols)
-            if color_by_pca != "None":
-                pca_df[color_by_pca] = df[color_by_pca].values
-
-        # Plot PCA
-        fig, ax = plt.subplots(figsize=(10, 8))
-        if 'color_by_pca' in locals() and color_by_pca != "None":
-            sns.scatterplot(data=pca_df, x='PC1', y='PC2', hue=color_by_pca, ax=ax)
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        else:
-            sns.scatterplot(data=pca_df, x='PC1', y='PC2', ax=ax)
-
-        plt.title('PCA of Pickleball Paddle Data')
-        plt.xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.2%} variance)')
-        plt.ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.2%} variance)')
-        st.pyplot(fig)
-
-        # Feature importance in PCs
-        loadings = pd.DataFrame(
-            pca.components_.T,
-            columns=[f'PC{i + 1}' for i in range(2)],
-            index=pca_features
-        )
-
-        st.write("Feature Loadings (Importance in Principal Components):")
-        st.dataframe(loadings)
-
-        # Plot explained variance
-        fig, ax = plt.subplots(figsize=(10, 6))
-        plt.bar(range(1, len(pca_features) + 1), pca.explained_variance_ratio_)
-        plt.xlabel('Principal Component')
-        plt.ylabel('Proportion of Variance Explained')
-        plt.title('Explained Variance by Principal Components')
-        plt.xticks(range(1, len(pca_features) + 1))
-        st.pyplot(fig)
-
-        st.write(f"Total variance explained by first two components: {sum(pca.explained_variance_ratio_[:2]):.2%}")
-    else:
-        st.write("Please select at least three features for PCA")
-else:
-    st.write("Not enough numerical features for PCA")
 
 # Feature explorer
 st.header("Feature Explorer")
