@@ -54,7 +54,7 @@ class PaddleAnalysis:
         corr = corr_features.corr()
 
         # Create figure
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(4, 3))
 
         # Create mask for upper triangle
         mask = np.triu(np.ones_like(corr, dtype=bool))
@@ -63,22 +63,33 @@ class PaddleAnalysis:
         cmap = sns.diverging_palette(220, 10, as_cmap=True)
 
         # Plot heatmap
-        sns.heatmap(corr, mask=mask, cmap=cmap,
+        heatmap = sns.heatmap(corr, mask=mask, cmap=cmap,
                     annot=True, square=True, linewidths=.5,
-                    fmt=".2f", center=0, ax=ax)
+                    fmt=".2f", center=0, ax=ax, annot_kws={"size": 5})
 
+        # Reduce font sizes for axis labels and ticks
+        ax.set_xticklabels(ax.get_xticklabels(), fontsize=5, rotation=45, ha='right')
+        ax.set_yticklabels(ax.get_yticklabels(), fontsize=5)
+        ax.set_title("Correlation Matrix", fontsize=7)
+        
+        # Reduce colorbar font size
+        cbar = heatmap.collections[0].colorbar
+        cbar.ax.tick_params(labelsize=4)
+
+        plt.tight_layout()  
         return fig
 
     def plot_scatter(self, x_axis, y_axis, color_by=None):
         """Plot scatter plot of two features with optional coloring"""
-        fig, ax = plt.subplots(figsize=(7, 4))
+        fig, ax = plt.subplots(figsize=(3.5, 2))  
 
         if color_by and color_by in self.df.columns:
             ax.scatter(
                 self.df[x_axis],
                 self.df[y_axis],
                 c=self.df[color_by] if color_by in self.numeric_cols else None,
-                alpha=0.7
+                alpha=0.7,
+                s=20  
             )
 
             # Add legend if coloring by category
@@ -86,24 +97,30 @@ class PaddleAnalysis:
                 # Create categorical legend
                 pass
         else:
-            scatter = ax.scatter(self.df[x_axis], self.df[y_axis], alpha=0.7)
+            ax.scatter(self.df[x_axis], self.df[y_axis], alpha=0.7, s=20)
 
-        ax.set_xlabel(x_axis)
-        ax.set_ylabel(y_axis)
-        ax.set_title(f"{x_axis} vs {y_axis}")
+        ax.set_xlabel(x_axis, fontsize=8)  
+        ax.set_ylabel(y_axis, fontsize=8)  
+        ax.set_title(f"{x_axis} vs {y_axis}", fontsize=10)  
+        ax.tick_params(axis='both', which='major', labelsize=7)  
 
         # Add correlation text
         corr_value = self.df[x_axis].corr(self.df[y_axis])
         ax.text(0.05, 0.95, f"Correlation: {corr_value:.2f}",
-                transform=ax.transAxes, fontsize=8)
+                transform=ax.transAxes, fontsize=7, color='blue')
 
+        plt.tight_layout()  
         return fig
 
     def plot_distribution(self, dist_feature):
         """Plot distribution of a numeric feature"""
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(4, 2.5))
         sns.histplot(self.df[dist_feature], kde=True, ax=ax)
-        ax.set_title(f"Distribution of {dist_feature}")
+        ax.set_title(f"Distribution of {dist_feature}", fontsize=8)
+        ax.set_xlabel(dist_feature, fontsize=7)
+        ax.set_ylabel("Count", fontsize=7)
+        ax.tick_params(axis='both', which='major', labelsize=6)
+        plt.tight_layout()
         return fig
 
     def plot_categorical_analysis(self, cat_feature, num_feature):
@@ -112,14 +129,18 @@ class PaddleAnalysis:
         cat_counts = self.df[cat_feature].value_counts()
         valid_cats = cat_counts[cat_counts >= 3].index.tolist()
 
-        fig, ax = plt.subplots(figsize=(12, 8))
+        fig, ax = plt.subplots(figsize=(5, 3))
 
         # Create appropriate visualization (e.g., boxplot)
         filtered_data = self.df[self.df[cat_feature].isin(valid_cats)]
         sns.boxplot(x=cat_feature, y=num_feature, data=filtered_data, ax=ax)
 
-        ax.set_title(f"{num_feature} by {cat_feature}")
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_title(f"{num_feature} by {cat_feature}", fontsize=8)
+        ax.set_xlabel(cat_feature, fontsize=7)
+        ax.set_ylabel(num_feature, fontsize=7)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right', fontsize=6)
+        ax.tick_params(axis='y', which='major', labelsize=6)
+        plt.tight_layout()
 
         return fig
 
@@ -179,16 +200,24 @@ class PaddleAnalysis:
         angles = np.linspace(0, 2 * np.pi, len(list(normalized_values.values())[0]), endpoint=False)
         angles = np.concatenate((angles, [angles[0]]))
 
-        fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
+        fig, ax = plt.subplots(figsize=(5, 5), subplot_kw=dict(polar=True))
 
         for i, (paddle, values) in enumerate(normalized_values.items()):
             values = list(values.values())
             values = np.concatenate((values, [values[0]]))
-            ax.plot(angles, values, linewidth=2, label=paddle)
+            ax.plot(angles, values, linewidth=1.5, label=paddle)
             ax.fill(angles, values, alpha=0.1)
 
-        # Set labels, etc.
-
+        # Add feature labels around the chart
+        features = list(list(normalized_values.values())[0].keys())
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(features, fontsize=6)
+        ax.tick_params(axis='y', labelsize=6)
+        
+        # Add legend with smaller font
+        ax.legend(loc='upper right', fontsize=7)
+        
+        plt.tight_layout()
         return fig
 
     def run_app(self):
@@ -246,7 +275,7 @@ class PaddleAnalysis:
 
         if features:
             corr_fig = self.plot_correlation_matrix(features)
-            st.pyplot(corr_fig)
+            st.pyplot(corr_fig, use_container_width=False)
 
         # Feature selection for scatter plot
         st.subheader("Explore Feature Relationships")
@@ -266,7 +295,7 @@ class PaddleAnalysis:
                 color_by = None
 
         scatter_fig = self.plot_scatter(x_axis, y_axis, color_by)
-        st.pyplot(scatter_fig)
+        st.pyplot(scatter_fig, use_container_width=False)
 
     def show_feature_distribution(self):
         """Display feature distribution page"""
@@ -280,7 +309,7 @@ class PaddleAnalysis:
 
         if dist_feature:
             dist_fig = self.plot_distribution(dist_feature)
-            st.pyplot(dist_fig)
+            st.pyplot(dist_fig, use_container_width=False)
 
         # Categorical analysis
         st.subheader("Categorical Analysis")
@@ -300,7 +329,7 @@ class PaddleAnalysis:
 
         if cat_feature and num_feature:
             cat_fig = self.plot_categorical_analysis(cat_feature, num_feature)
-            st.pyplot(cat_fig)
+            st.pyplot(cat_fig, use_container_width=False)
 
     def show_paddle_comparison(self):
         """Display paddle comparison page"""
@@ -337,7 +366,7 @@ class PaddleAnalysis:
                     paddle_values[paddle] = values
 
                 radar_fig = self.create_radar_chart(paddle_values)
-                st.pyplot(radar_fig)
+                st.pyplot(radar_fig, use_container_width=False)
 
     def show_custom_analysis(self):
         """Display custom analysis page with filtering options"""
