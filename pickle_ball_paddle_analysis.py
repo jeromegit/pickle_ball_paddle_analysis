@@ -4,222 +4,374 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Set page title and layout
-st.set_page_config(
-    page_title="Pickleball Paddle Analyzer",
-    layout="wide"
-)
 
-# Title and introduction
-st.title("Pickleball Paddle Data Analysis")
-st.write("Analyze and explore relationships between different pickleball paddle characteristics.")
+class PaddleAnalysis:
+    def __init__(self):
+        self.df = self.load_data()
 
+        # Initialize column lists
+        self.numeric_cols = self.df.select_dtypes(include=['number']).columns.tolist()
+        self.categorical_cols = self.df.select_dtypes(include=['object']).columns.tolist()
 
-def massage_data(data_df):
-    massaged_data_df = data_df.dropna(subset=['Paddle', 'Price'])
+    def load_data(self):
+        FILE_PATH = '/Users/jerome/projects/pickle_ball_paddle_analysis/john_knew_pickleball_paddle_database.tsv'
+        try:
+            data_df = pd.read_csv(FILE_PATH, sep='\t')
+            massaged_data_df = self.massage_data(data_df)
+        except Exception as e:
+            st.error(f"Error loading data from file:{FILE_PATH} {e}")
+            st.stop()
+        return massaged_data_df
 
-    columns_to_drop = ['Discount Code/Link', 'Discount', 'Discounted Price']
-    massaged_data_df = massaged_data_df.drop(columns=columns_to_drop)
+    def massage_data(self, data_df):
+        massaged_data_df = data_df.dropna(subset=['Paddle', 'Price'])
 
-    massaged_data_df['Price'] = massaged_data_df['Price'].str.replace('$', '', regex=False).astype(float).round(0).astype(int)
+        columns_to_drop = ['Discount Code/Link', 'Discount', 'Discounted Price']
+        massaged_data_df = massaged_data_df.drop(columns=columns_to_drop)
 
-    # Remove commas from numeric columns and convert to numeric
-    massaged_data_df = massaged_data_df.replace({',': ''}, regex=True)
+        massaged_data_df['Price'] = massaged_data_df['Price'].str.replace('$', '', regex=False).astype(float).round(
+            0).astype(int)
 
-    # Convert percentage columns to float in the range 0 to 1
-    percent_cols = [col for col in massaged_data_df.columns if col.endswith('%')]
-    for col in percent_cols:
-        massaged_data_df[col] = massaged_data_df[col].str.replace('%', '').astype(float) / 100
+        # Remove commas from numeric columns and convert to numeric
+        massaged_data_df = massaged_data_df.replace({',': ''}, regex=True)
 
-    return massaged_data_df
+        # Convert percentage columns to float in the range 0 to 1
+        percent_cols = [col for col in massaged_data_df.columns if col.endswith('%')]
+        for col in percent_cols:
+            massaged_data_df[col] = massaged_data_df[col].str.replace('%', '').astype(float) / 100
 
+        return massaged_data_df
 
-# Function to load and process data
-def load_data():
-    FILE_PATH = '/Users/jerome/projects/pickle_ball_paddle_analysis/john_knew_pickleball_paddle_database.tsv'
-    try:
-        data_df = pd.read_csv(FILE_PATH, sep='\t')
-        massaged_data_df = massage_data(data_df)
-    except Exception as e:
-        st.error(f"Error loading data from file:{FILE_PATH} {e}")
-        st.stop()
-
-
-    return massaged_data_df
-
-
-# Load data based on user choice
-df = load_data()
-
-# Data overview
-st.header("Data Overview")
-st.write(f"Dataset has {df.shape[0]} paddles and {df.shape[1]} features.")
-
-# Display data
-with st.expander("View Raw Data"):
-    st.dataframe(df)
-
-# Display summary statistics
-with st.expander("Summary Statistics"):
-    st.write(df.describe())
-
-# Identify numeric and categorical columns
-numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
-
-# Sidebar for feature selection
-st.sidebar.header("Analysis Options")
-
-# Correlation analysis
-st.header("Correlation Analysis")
-corr_features = st.multiselect(
-    "Select features for correlation analysis:",
-    numeric_cols,
-    default=numeric_cols[:5] if len(numeric_cols) > 5 else numeric_cols
-)
-
-if len(corr_features) > 1:
-    corr = df[corr_features].corr()
-
-    # Correlation heatmap
-    fig, ax = plt.subplots(figsize=(10, 8))
-    mask = np.triu(np.ones_like(corr, dtype=bool))
-    cmap = sns.diverging_palette(230, 20, as_cmap=True)
-    sns.heatmap(corr, mask=mask, cmap=cmap, vmax=1, vmin=-1, center=0,
-                square=True, linewidths=.5, annot=True, fmt=".2f", ax=ax)
-    plt.title('Correlation Matrix')
-    st.pyplot(fig)
-
-    # Feature relationship exploration
-    st.header("Feature Relationship Explorer")
-    x_axis = st.selectbox("X-axis", corr_features)
-    y_axis = st.selectbox("Y-axis", corr_features, index=1 if len(corr_features) > 1 else 0)
-    color_by = st.selectbox("Color by", ["None"] + categorical_cols)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    if color_by != "None":
-        scatter = sns.scatterplot(data=df, x=x_axis, y=y_axis, hue=color_by, ax=ax)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    else:
-        scatter = sns.scatterplot(data=df, x=x_axis, y=y_axis, ax=ax)
-
-    plt.title(f"{y_axis} vs {x_axis}")
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # Display correlation coefficient
-    corr_value = df[x_axis].corr(df[y_axis])
-    st.write(f"Correlation coefficient between {x_axis} and {y_axis}: **{corr_value:.3f}**")
-else:
-    st.write("Please select at least two features for correlation analysis")
-
-# Distribution analysis
-st.header("Distribution Analysis")
-dist_feature = st.selectbox("Select feature to view distribution:", numeric_cols)
-
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.histplot(df[dist_feature], kde=True, ax=ax)
-plt.title(f"Distribution of {dist_feature}")
-st.pyplot(fig)
-
-# Box plots by categories
-st.header("Category Comparison")
-if categorical_cols:
-    cat_feature = st.selectbox("Select categorical feature:", categorical_cols)
-    num_feature = st.selectbox("Select numerical feature to compare:", numeric_cols,
-                               index=1 if len(numeric_cols) > 1 else 0)
-
-    # Filter for categories with sufficient data
-    cat_counts = df[cat_feature].value_counts()
-    valid_cats = cat_counts[cat_counts >= 1].index.tolist()
-
-    if len(valid_cats) > 1:
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.boxplot(x=cat_feature, y=num_feature, data=df[df[cat_feature].isin(valid_cats)], ax=ax)
-        plt.xticks(rotation=45, ha='right')
-        plt.title(f"{num_feature} by {cat_feature}")
-        plt.tight_layout()
-        st.pyplot(fig)
-    else:
-        st.write("Not enough categories with sufficient data for comparison")
-else:
-    st.write("No categorical features found in the dataset")
-
-# Feature explorer
-st.header("Feature Explorer")
-st.write("Compare multiple paddle features side by side")
-
-feature_explorer_cols = st.multiselect(
-    "Select features to compare:",
-    df.columns.tolist(),
-    default=df.columns[:4].tolist() if len(df.columns) > 4 else df.columns.tolist()
-)
-
-if feature_explorer_cols:
-    # Allow users to filter by category
-    if categorical_cols:
-        filter_cat = st.selectbox("Filter by category:", ["None"] + categorical_cols)
-        if filter_cat != "None":
-            filter_value = st.selectbox("Select value:", df[filter_cat].unique())
-            filtered_df = df[df[filter_cat] == filter_value]
+    def plot_correlation_matrix(self, features=None):
+        """Plot correlation matrix for selected numeric features"""
+        if features is None:
+            # Use default numeric columns if none specified
+            corr_features = self.df[self.numeric_cols]
         else:
-            filtered_df = df
-    else:
-        filtered_df = df
+            corr_features = self.df[features]
 
-    st.write(filtered_df[feature_explorer_cols])
+        # Calculate correlation
+        corr = corr_features.corr()
 
-# Paddle comparison
-st.header("Paddle Comparison")
-if "Paddle" in df.columns:
-    paddles = st.multiselect(
-        "Select paddles to compare:",
-        df["Paddle"].unique(),
-        default=df["Paddle"].unique()[:2].tolist() if len(df["Paddle"].unique()) > 2 else df["Paddle"].unique().tolist()
-    )
+        # Create figure
+        fig, ax = plt.subplots(figsize=(8, 6))
 
-    if paddles:
-        comparison_df = df[df["Paddle"].isin(paddles)]
-        comparison_features = st.multiselect(
-            "Select features for comparison:",
-            numeric_cols,
-            default=["Price", "Swing Weight", "Spin RPM", "Serve Speed-MPH (Power)"] if all(f in numeric_cols for f in
-                                                                                            ["Price", "Swing Weight",
-                                                                                             "Spin RPM",
-                                                                                             "Serve Speed-MPH (Power)"]) else numeric_cols[
-                                                                                                                              :4]
+        # Create mask for upper triangle
+        mask = np.triu(np.ones_like(corr, dtype=bool))
+
+        # Set color map
+        cmap = sns.diverging_palette(220, 10, as_cmap=True)
+
+        # Plot heatmap
+        sns.heatmap(corr, mask=mask, cmap=cmap,
+                    annot=True, square=True, linewidths=.5,
+                    fmt=".2f", center=0, ax=ax)
+
+        return fig
+
+    def plot_scatter(self, x_axis, y_axis, color_by=None):
+        """Plot scatter plot of two features with optional coloring"""
+        fig, ax = plt.subplots(figsize=(7, 4))
+
+        if color_by and color_by in self.df.columns:
+            ax.scatter(
+                self.df[x_axis],
+                self.df[y_axis],
+                c=self.df[color_by] if color_by in self.numeric_cols else None,
+                alpha=0.7
+            )
+
+            # Add legend if coloring by category
+            if color_by not in self.numeric_cols:
+                # Create categorical legend
+                pass
+        else:
+            scatter = ax.scatter(self.df[x_axis], self.df[y_axis], alpha=0.7)
+
+        ax.set_xlabel(x_axis)
+        ax.set_ylabel(y_axis)
+        ax.set_title(f"{x_axis} vs {y_axis}")
+
+        # Add correlation text
+        corr_value = self.df[x_axis].corr(self.df[y_axis])
+        ax.text(0.05, 0.95, f"Correlation: {corr_value:.2f}",
+                transform=ax.transAxes, fontsize=8)
+
+        return fig
+
+    def plot_distribution(self, dist_feature):
+        """Plot distribution of a numeric feature"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.histplot(self.df[dist_feature], kde=True, ax=ax)
+        ax.set_title(f"Distribution of {dist_feature}")
+        return fig
+
+    def plot_categorical_analysis(self, cat_feature, num_feature):
+        """Plot relationship between categorical and numeric features"""
+        # Count values in each category
+        cat_counts = self.df[cat_feature].value_counts()
+        valid_cats = cat_counts[cat_counts >= 3].index.tolist()
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+
+        # Create appropriate visualization (e.g., boxplot)
+        filtered_data = self.df[self.df[cat_feature].isin(valid_cats)]
+        sns.boxplot(x=cat_feature, y=num_feature, data=filtered_data, ax=ax)
+
+        ax.set_title(f"{num_feature} by {cat_feature}")
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+
+        return fig
+
+    def filter_data(self, filter_cat=None, filter_value=None):
+        """Filter the dataframe based on category and value"""
+        filtered_df = self.df.copy()
+
+        if filter_cat and filter_cat in self.df.columns:
+            if filter_value:
+                if isinstance(filter_value, list):
+                    filtered_df = filtered_df[filtered_df[filter_cat].isin(filter_value)]
+                else:
+                    filtered_df = filtered_df[filtered_df[filter_cat] == filter_value]
+
+        return filtered_df
+
+    def compare_paddles(self, paddles, comparison_features=None):
+        """Compare selected paddles across features"""
+        if comparison_features is None:
+            comparison_features = self.numeric_cols
+
+        comparison_df = self.df[self.df['Paddle'].isin(paddles)].copy()
+
+        # Create visualization for comparison
+        # This could be a bar chart, radar chart, etc.
+
+        return comparison_df
+
+    def create_radar_chart(self, paddle_values):
+        """Create radar chart for comparing paddles"""
+        # Normalize values for radar chart
+        min_vals = {}
+        max_vals = {}
+        normalized_values = {}
+
+        # Calculate min and max for each feature
+        for paddle, values in paddle_values.items():
+            for feature, value in values.items():
+                if feature not in min_vals or value < min_vals[feature]:
+                    min_vals[feature] = value
+                if feature not in max_vals or value > max_vals[feature]:
+                    max_vals[feature] = value
+
+        # Normalize values between 0 and 1
+        for paddle, values in paddle_values.items():
+            norm_values = {}
+            for feature, value in values.items():
+                min_val = min_vals[feature]
+                max_val = max_vals[feature]
+                if max_val == min_val:
+                    norm_values[feature] = 0.5
+                else:
+                    norm_values[feature] = (value - min_val) / (max_val - min_val)
+            normalized_values[paddle] = norm_values
+
+        # Create radar chart
+        angles = np.linspace(0, 2 * np.pi, len(list(normalized_values.values())[0]), endpoint=False)
+        angles = np.concatenate((angles, [angles[0]]))
+
+        fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
+
+        for i, (paddle, values) in enumerate(normalized_values.items()):
+            values = list(values.values())
+            values = np.concatenate((values, [values[0]]))
+            ax.plot(angles, values, linewidth=2, label=paddle)
+            ax.fill(angles, values, alpha=0.1)
+
+        # Set labels, etc.
+
+        return fig
+
+    def run_app(self):
+        """Main function to run the Streamlit app"""
+        # Set page title and layout
+        st.set_page_config(
+            page_title="Pickleball Paddle Analyzer",
+            layout="wide"
         )
 
-        if comparison_features:
-            # Radar chart for comparing paddles
-            paddle_values = []
-            for paddle in paddles:
-                values = comparison_df[comparison_df["Paddle"] == paddle][comparison_features].values[0]
-                paddle_values.append(values)
+        st.title("Pickleball Paddle Analysis")
 
-            # Normalize values for radar chart
-            min_vals = comparison_df[comparison_features].min()
-            max_vals = comparison_df[comparison_features].max()
-            normalized_values = []
+        # Sidebar for navigation
+        page = st.sidebar.selectbox(
+            "Choose Analysis",
+            ["Data Overview", "Correlation Analysis", "Feature Distribution",
+             "Paddle Comparison", "Custom Analysis"]
+        )
 
-            for values in paddle_values:
-                norm_values = [(v - min_val) / (max_val - min_val) if max_val > min_val else 0.5
-                               for v, min_val, max_val in zip(values, min_vals, max_vals)]
-                normalized_values.append(norm_values)
+        if page == "Data Overview":
+            self.show_data_overview()
 
-            # Create radar chart
-            angles = np.linspace(0, 2 * np.pi, len(comparison_features), endpoint=False)
-            angles = np.concatenate((angles, [angles[0]]))  # Close the loop
+        elif page == "Correlation Analysis":
+            self.show_correlation_analysis()
 
-            fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))
+        elif page == "Feature Distribution":
+            self.show_feature_distribution()
 
-            for i, paddle in enumerate(paddles):
-                values = normalized_values[i]
-                values = np.concatenate((values, [values[0]]))  # Close the loop
-                ax.plot(angles, values, 'o-', linewidth=2, label=paddle)
-                ax.fill(angles, values, alpha=0.1)
+        elif page == "Paddle Comparison":
+            self.show_paddle_comparison()
 
-            ax.set_thetagrids(angles[:-1] * 180 / np.pi, comparison_features)
-            plt.title('Paddle Comparison')
-            plt.legend(loc='upper right')
-            st.pyplot(fig)
+        elif page == "Custom Analysis":
+            self.show_custom_analysis()
+
+    def show_data_overview(self):
+        """Display data overview page"""
+        st.header("Data Overview")
+        st.dataframe(self.df)
+
+        st.subheader("Data Summary")
+        st.write(self.df.describe())
+
+        # Additional statistics and info
+
+    def show_correlation_analysis(self):
+        """Display correlation analysis page"""
+        st.header("Correlation Analysis")
+
+        # Feature selection for correlation
+        features = st.multiselect(
+            "Select features for correlation matrix",
+            options=self.numeric_cols,
+            default=self.numeric_cols[:5]
+        )
+
+        if features:
+            corr_fig = self.plot_correlation_matrix(features)
+            st.pyplot(corr_fig)
+
+        # Feature selection for scatter plot
+        st.subheader("Explore Feature Relationships")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            x_axis = st.selectbox("X-axis", options=self.numeric_cols)
+
+        with col2:
+            y_axis = st.selectbox("Y-axis", options=self.numeric_cols,
+                                  index=1 if len(self.numeric_cols) > 1 else 0)
+
+        with col3:
+            color_options = ["None"] + self.categorical_cols + self.numeric_cols
+            color_by = st.selectbox("Color by", options=color_options)
+            if color_by == "None":
+                color_by = None
+
+        scatter_fig = self.plot_scatter(x_axis, y_axis, color_by)
+        st.pyplot(scatter_fig)
+
+    def show_feature_distribution(self):
+        """Display feature distribution page"""
+        st.header("Feature Distribution")
+
+        # Select feature to visualize
+        dist_feature = st.selectbox(
+            "Select feature to view distribution",
+            options=self.numeric_cols
+        )
+
+        if dist_feature:
+            dist_fig = self.plot_distribution(dist_feature)
+            st.pyplot(dist_fig)
+
+        # Categorical analysis
+        st.subheader("Categorical Analysis")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            cat_feature = st.selectbox(
+                "Select categorical feature",
+                options=self.categorical_cols
+            )
+
+        with col2:
+            num_feature = st.selectbox(
+                "Select numeric feature to analyze",
+                options=self.numeric_cols
+            )
+
+        if cat_feature and num_feature:
+            cat_fig = self.plot_categorical_analysis(cat_feature, num_feature)
+            st.pyplot(cat_fig)
+
+    def show_paddle_comparison(self):
+        """Display paddle comparison page"""
+        st.header("Paddle Comparison")
+
+        # Select paddles to compare
+        paddles = st.multiselect(
+            "Select paddles to compare",
+            options=self.df['Paddle'].unique()
+        )
+
+        if paddles:
+            # Select features to compare
+            comparison_features = st.multiselect(
+                "Select features to compare",
+                options=self.numeric_cols,
+                default=self.numeric_cols[:5]
+            )
+
+            if comparison_features:
+                comparison_df = self.compare_paddles(paddles, comparison_features)
+
+                # Display comparison table
+                st.subheader("Comparison Table")
+                st.dataframe(comparison_df[['Paddle'] + comparison_features])
+
+                # Create and display radar chart
+                st.subheader("Radar Chart Comparison")
+                paddle_values = {}
+                for paddle in paddles:
+                    values = {}
+                    for f in comparison_features:
+                        values[f] = self.df[self.df['Paddle'] == paddle][f].values[0]
+                    paddle_values[paddle] = values
+
+                radar_fig = self.create_radar_chart(paddle_values)
+                st.pyplot(radar_fig)
+
+    def show_custom_analysis(self):
+        """Display custom analysis page with filtering options"""
+        st.header("Custom Analysis")
+
+        # Filtering options
+        st.subheader("Filter Data")
+        filter_cat = st.selectbox(
+            "Filter by category",
+            options=["None"] + self.categorical_cols
+        )
+
+        if filter_cat != "None":
+            filter_options = ["All"] + list(self.df[filter_cat].unique())
+            filter_value = st.selectbox(
+                f"Select {filter_cat} value",
+                options=filter_options
+            )
+
+            if filter_value == "All":
+                filter_value = None
+
+            filtered_df = self.filter_data(filter_cat, filter_value)
+        else:
+            filtered_df = self.df
+
+        st.write(f"Filtered data contains {len(filtered_df)} rows")
+        st.dataframe(filtered_df)
+
+        # Custom visualization options based on filtered data
+        # ...
+
+
+# Initialize and run app
+if __name__ == "__main__":
+    analysis_app = PaddleAnalysis()
+    analysis_app.run_app()
