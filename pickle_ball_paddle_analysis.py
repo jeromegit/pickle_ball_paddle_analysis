@@ -122,18 +122,35 @@ class PaddleAnalysis:
         fig, ax = plt.subplots(figsize=(3.5, 2))
 
         if color_by and color_by in self.df.columns:
-            ax.scatter(
-                self.df[x_axis],
-                self.df[y_axis],
-                c=self.df[color_by] if color_by in self.numeric_cols else None,
-                alpha=0.7,
-                s=20
-            )
-
-            # Add legend if coloring by category
-            if color_by not in self.numeric_cols:
-                # Create categorical legend
-                pass
+            if color_by in self.numeric_cols:
+                # For numeric columns, use a colormap
+                scatter = ax.scatter(
+                    self.df[x_axis],
+                    self.df[y_axis],
+                    c=self.df[color_by],
+                    alpha=0.7,
+                    s=20,
+                    cmap='viridis'
+                )
+                # Add a color bar
+                cbar = plt.colorbar(scatter, ax=ax)
+                cbar.set_label(color_by, fontsize=7)
+                cbar.ax.tick_params(labelsize=6)
+            else:
+                # For categorical columns, use different colors for each category
+                categories = self.df[color_by].unique()
+                for category in categories:
+                    subset = self.df[self.df[color_by] == category]
+                    ax.scatter(
+                        subset[x_axis],
+                        subset[y_axis],
+                        label=category,
+                        alpha=0.7,
+                        s=20
+                    )
+                # Add legend for categorical coloring
+                ax.legend(fontsize=6, title=color_by, title_fontsize=7, 
+                         loc='upper center', bbox_to_anchor=(0.5, -0.35), ncol=3)
         else:
             ax.scatter(self.df[x_axis], self.df[y_axis], alpha=0.7, s=20)
 
