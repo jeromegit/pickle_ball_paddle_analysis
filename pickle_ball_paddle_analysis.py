@@ -314,7 +314,7 @@ class PaddleAnalysis:
 
         # Sidebar for navigation
         page = st.sidebar.selectbox(
-            "Choose Analysis",
+            "Choose Analysis...",
             ["Data Overview", "Price Analysis", "Correlation Analysis", "Feature Distribution",
              "Paddle Comparison", "Custom Analysis"]
         )
@@ -340,6 +340,84 @@ class PaddleAnalysis:
     def show_data_overview(self):
         """Display data overview page"""
         st.header("Data Overview")
+        
+        # General dataset statistics
+        st.subheader("Dataset Statistics")
+        
+        # Create columns for key metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Paddles", len(self.df))
+            
+        with col2:
+            st.metric("Companies", self.df['Company'].nunique())
+            
+        with col3:
+            # Calculate average price
+            avg_price = self.df['Price'].mean()
+            st.metric("Average Price", f"${int(round(avg_price))}")
+            
+        with col4:
+            # Calculate price range
+            min_price = self.df['Price'].min()
+            max_price = self.df['Price'].max()
+            st.metric("Price Range", f"${int(round(min_price))} - ${int(round(max_price))}")
+        
+        # Display categorical column distributions
+        st.subheader("Categorical Distributions")
+        
+        # Create tabs for each categorical column with reasonable number of categories
+        categorical_cols = [col for col in self.categorical_cols 
+                           if col != 'Condition' and self.df[col].nunique() <= 15 and self.df[col].nunique() > 1]
+        
+        if categorical_cols:
+            tabs = st.tabs(categorical_cols)
+            
+            for i, col in enumerate(categorical_cols):
+                with tabs[i]:
+                    # Get value counts and calculate percentages
+                    counts = self.df[col].value_counts().reset_index()
+                    counts.columns = [col, 'Count']
+                    counts['Percentage'] = (counts['Count'] / counts['Count'].sum() * 100).round(1)
+                    counts['Percentage'] = counts['Percentage'].astype(str) + '%'
+                    
+                    # Add price statistics for each category
+                    price_stats = self.df.groupby(col)['Price'].agg(['min', 'max', 'mean']).reset_index()
+                    
+                    # Format price columns - round to nearest integer
+                    price_stats['Min Price'] = price_stats['min'].apply(lambda x: f"${int(round(x))}")
+                    price_stats['Max Price'] = price_stats['max'].apply(lambda x: f"${int(round(x))}")
+                    price_stats['Avg Price'] = price_stats['mean'].apply(lambda x: f"${int(round(x))}")
+                    
+                    # Merge counts with price stats
+                    merged_stats = counts.merge(price_stats[[col, 'Min Price', 'Max Price', 'Avg Price']], on=col)
+                    
+                    # Display as a dataframe
+                    st.dataframe(merged_stats, use_container_width=True)
+                    
+                    # Create a horizontal bar chart using Plotly
+                    fig = px.bar(
+                        counts, 
+                        y=col, 
+                        x='Count', 
+                        orientation='h',
+                        color=col,
+                        title=f"Distribution of {col}",
+                        text='Percentage',
+                        height=400
+                    )
+                    
+                    fig.update_layout(
+                        xaxis_title="Count",
+                        yaxis_title=col,
+                        showlegend=False
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Display the full dataframe
+        st.subheader("Full Dataset")
         st.dataframe(self.df)
 
         st.subheader("Data Summary")
