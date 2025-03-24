@@ -282,34 +282,50 @@ class PaddleAnalysis:
                 else:
                     norm_values[feature] = (value - min_val) / (max_val - min_val)
             normalized_values[paddle] = norm_values
-
-        # Create radar chart using ordered features
-        angles = np.linspace(0, 2 * np.pi, len(ordered_features), endpoint=False)
-        angles = np.concatenate((angles, [angles[0]]))
-
-        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-
-        for i, (paddle, values) in enumerate(normalized_values.items()):
+        
+        # Create a Plotly radar chart (polar chart)
+        fig = go.Figure()
+        
+        # Add each paddle as a trace
+        for paddle, values in normalized_values.items():
             # Use the ordered features to get values in the right order
             ordered_values = [values[feature] for feature in ordered_features]
             # Add the first value at the end to close the loop
-            ordered_values = np.concatenate((ordered_values, [ordered_values[0]]))
-            ax.plot(angles, ordered_values, linewidth=1.5, label=paddle)
-            ax.fill(angles, ordered_values, alpha=0.1)
-
-        # Add feature labels around the chart in the specified order
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(ordered_features, fontsize=8)
-        ax.tick_params(axis='y', labelsize=8)
+            ordered_values.append(ordered_values[0])
+            ordered_categories = ordered_features + [ordered_features[0]]
+            
+            fig.add_trace(go.Scatterpolar(
+                r=ordered_values,
+                theta=ordered_categories,
+                fill='toself',
+                name=paddle,
+                opacity=0.7
+            ))
+        
+        # Update layout
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 1]
+                )
+            ),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=-0.2,
+                xanchor="center",
+                x=0.5
+            ),
+            height=600,
+            margin=dict(l=80, r=80, t=100, b=100)
+        )
         
         # Add title if provided
         if title:
-            ax.set_title(title, fontsize=12, pad=20)
-
-        # Add legend with smaller font and place it outside the plot
-        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3, fontsize=8)
-
-        plt.tight_layout()
+            fig.update_layout(title=title)
+            
         return fig
 
     def run_app(self):
@@ -682,7 +698,7 @@ class PaddleAnalysis:
                             paddle_values[paddle] = values
 
                         radar_fig = self.create_radar_chart(paddle_values, title="Performance Metrics")
-                        st.pyplot(radar_fig, use_container_width=True)
+                        st.plotly_chart(radar_fig, use_container_width=True)
 
                     # Second radar chart in right column
                     with col2:
@@ -714,7 +730,7 @@ class PaddleAnalysis:
                             
                             if paddle_percentile_values:
                                 radar_percentile_fig = self.create_radar_chart(paddle_percentile_values, feature_order=available_percentile_features, title="Percentile & Price Comparison")
-                                st.pyplot(radar_percentile_fig, use_container_width=True)
+                                st.plotly_chart(radar_percentile_fig, use_container_width=True)
                             else:
                                 st.warning("No percentile data available for the selected paddles.")
                         else:
