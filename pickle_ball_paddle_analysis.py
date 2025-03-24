@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
 
 
 class PaddleAnalysis:
@@ -313,12 +315,15 @@ class PaddleAnalysis:
         # Sidebar for navigation
         page = st.sidebar.selectbox(
             "Choose Analysis",
-            ["Data Overview", "Correlation Analysis", "Feature Distribution",
+            ["Data Overview", "Price Analysis", "Correlation Analysis", "Feature Distribution",
              "Paddle Comparison", "Custom Analysis"]
         )
 
         if page == "Data Overview":
             self.show_data_overview()
+            
+        elif page == "Price Analysis":
+            self.show_price_analysis()
 
         elif page == "Correlation Analysis":
             self.show_correlation_analysis()
@@ -340,7 +345,70 @@ class PaddleAnalysis:
         st.subheader("Data Summary")
         st.write(self.df.describe())
 
-        # Additional statistics and info
+    def show_price_analysis(self):
+        """Display price analysis page with interactive Plotly charts"""
+        st.header("Price Analysis")
+        
+        # Price distribution by company
+        st.subheader("Price Distribution Across Companies")
+        
+        # Create a box plot for price distribution by company
+        fig = px.box(self.df, x="Company", y="Price", 
+                    title="Paddle Price Distribution by Company",
+                    color="Company",
+                    points="all",  # Show all points
+                    hover_data=["Paddle"])  # Show paddle name on hover
+        
+        # Update layout for better readability
+        fig.update_layout(
+            xaxis_title="Company",
+            yaxis_title="Price ($)",
+            xaxis_tickangle=-45,
+            height=700,  # Taller chart
+            showlegend=False
+        )
+        
+        # Display the chart
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Also add a histogram of overall price distribution
+        hist_fig = px.histogram(
+            self.df, 
+            x="Price", 
+            color="Company",
+            title="Price Distribution Histogram",
+            marginal="box",  # Add a box plot on the margin
+            hover_data=["Paddle"]  # Show paddle name on hover
+        )
+        
+        hist_fig.update_layout(
+            xaxis_title="Price ($)",
+            yaxis_title="Count",
+            height=600  # Taller chart
+        )
+        
+        st.plotly_chart(hist_fig, use_container_width=True)
+        
+        # Add price statistics
+        st.subheader("Price Statistics by Company")
+        
+        # Group by company and calculate price statistics
+        price_stats = self.df.groupby('Company')['Price'].agg([
+            ('Average Price', 'mean'),
+            ('Median Price', 'median'),
+            ('Min Price', 'min'),
+            ('Max Price', 'max'),
+            ('Price Range', lambda x: x.max() - x.min()),
+            ('Count', 'count')
+        ]).reset_index().sort_values('Average Price', ascending=False)
+        
+        # Format the price columns
+        for col in price_stats.columns:
+            if col != 'Company' and col != 'Count':
+                price_stats[col] = price_stats[col].round(2)
+        
+        # Display the statistics
+        st.dataframe(price_stats, use_container_width=True)
 
     def show_correlation_analysis(self):
         """Display correlation analysis page"""
