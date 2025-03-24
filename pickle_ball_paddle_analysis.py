@@ -18,27 +18,30 @@ class PaddleAnalysis:
         try:
             data_df = pd.read_csv(FILE_PATH, sep='\t')
             massaged_data_df = self.massage_data(data_df)
+
+            return massaged_data_df
         except Exception as e:
             st.error(f"Error loading data from file:{FILE_PATH} {e}")
             st.stop()
-        return massaged_data_df
+
+        return None
 
     def massage_data(self, data_df):
-        massaged_data_df = data_df.dropna(subset=['Paddle', 'Price'])
+        massaged_data_df = data_df.dropna(subset=['Paddle', 'Price', 'Spin RPM'])
 
         columns_to_drop = ['Discount Code/Link', 'Discount', 'Discounted Price']
         massaged_data_df = massaged_data_df.drop(columns=columns_to_drop)
 
+        # Clean up price/spin and make the numeric
         massaged_data_df['Price'] = massaged_data_df['Price'].str.replace('$', '', regex=False).astype(float).round(
             0).astype(int)
+        massaged_data_df['Spin RPM'] = massaged_data_df['Spin RPM'].str.replace(',', '', regex=True).astype(
+            float).round(0).astype(int)
 
-        # Remove commas from numeric columns and convert to numeric
-        massaged_data_df = massaged_data_df.replace({',': ''}, regex=True)
-
-        # Convert percentage columns to float in the range 0 to 1
+        # Convert percentage columns to float
         percent_cols = [col for col in massaged_data_df.columns if col.endswith('%')]
         for col in percent_cols:
-            massaged_data_df[col] = massaged_data_df[col].str.replace('%', '').astype(float) / 100
+            massaged_data_df[col] = massaged_data_df[col].str.replace('%', '').astype(float)
 
         return massaged_data_df
 
@@ -64,24 +67,24 @@ class PaddleAnalysis:
 
         # Plot heatmap
         heatmap = sns.heatmap(corr, mask=mask, cmap=cmap,
-                    annot=True, square=True, linewidths=.5,
-                    fmt=".2f", center=0, ax=ax, annot_kws={"size": 5})
+                              annot=True, square=True, linewidths=.5,
+                              fmt=".2f", center=0, ax=ax, annot_kws={"size": 5})
 
         # Reduce font sizes for axis labels and ticks
         ax.set_xticklabels(ax.get_xticklabels(), fontsize=5, rotation=45, ha='right')
         ax.set_yticklabels(ax.get_yticklabels(), fontsize=5)
         ax.set_title("Correlation Matrix", fontsize=7)
-        
+
         # Reduce colorbar font size
         cbar = heatmap.collections[0].colorbar
         cbar.ax.tick_params(labelsize=4)
 
-        plt.tight_layout()  
+        plt.tight_layout()
         return fig
 
     def plot_scatter(self, x_axis, y_axis, color_by=None):
         """Plot scatter plot of two features with optional coloring"""
-        fig, ax = plt.subplots(figsize=(3.5, 2))  
+        fig, ax = plt.subplots(figsize=(3.5, 2))
 
         if color_by and color_by in self.df.columns:
             ax.scatter(
@@ -89,7 +92,7 @@ class PaddleAnalysis:
                 self.df[y_axis],
                 c=self.df[color_by] if color_by in self.numeric_cols else None,
                 alpha=0.7,
-                s=20  
+                s=20
             )
 
             # Add legend if coloring by category
@@ -99,17 +102,17 @@ class PaddleAnalysis:
         else:
             ax.scatter(self.df[x_axis], self.df[y_axis], alpha=0.7, s=20)
 
-        ax.set_xlabel(x_axis, fontsize=8)  
-        ax.set_ylabel(y_axis, fontsize=8)  
-        ax.set_title(f"{x_axis} vs {y_axis}", fontsize=10)  
-        ax.tick_params(axis='both', which='major', labelsize=7)  
+        ax.set_xlabel(x_axis, fontsize=8)
+        ax.set_ylabel(y_axis, fontsize=8)
+        ax.set_title(f"{x_axis} vs {y_axis}", fontsize=10)
+        ax.tick_params(axis='both', which='major', labelsize=7)
 
         # Add correlation text
         corr_value = self.df[x_axis].corr(self.df[y_axis])
         ax.text(0.05, 0.95, f"Correlation: {corr_value:.2f}",
                 transform=ax.transAxes, fontsize=7, color='blue')
 
-        plt.tight_layout()  
+        plt.tight_layout()
         return fig
 
     def plot_distribution(self, dist_feature):
@@ -213,10 +216,10 @@ class PaddleAnalysis:
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(features, fontsize=6)
         ax.tick_params(axis='y', labelsize=6)
-        
+
         # Add legend with smaller font
         ax.legend(loc='upper right', fontsize=7)
-        
+
         plt.tight_layout()
         return fig
 
@@ -335,38 +338,65 @@ class PaddleAnalysis:
         """Display paddle comparison page"""
         st.header("Paddle Comparison")
 
-        # Select paddles to compare
-        paddles = st.multiselect(
-            "Select paddles to compare",
-            options=self.df['Paddle'].unique()
+        # Get all unique companies
+        companies = sorted(self.df['Company'].unique())
+
+        # First select company
+        selected_companies = st.multiselect(
+            "Select companies",
+            options=companies
         )
 
-        if paddles:
-            # Select features to compare
-            comparison_features = st.multiselect(
-                "Select features to compare",
-                options=self.numeric_cols,
-                default=self.numeric_cols[:5]
+        if selected_companies:
+            # Get all paddles from selected companies
+            filtered_df = self.df[self.df['Company'].isin(selected_companies)]
+            available_paddles = sorted(filtered_df['Paddle'].unique())
+
+            # Then select paddles from those companies
+            paddles = st.multiselect(
+                "Select paddles to compare",
+                options=available_paddles
             )
 
-            if comparison_features:
-                comparison_df = self.compare_paddles(paddles, comparison_features)
+            if paddles:
+                # Define default features for comparison
+                default_features = [
+                    'Spin RPM',
+                    'Twist Weight',
+                    'Balance Point (cm)',
+                    'Swing Weight',
+                    'Punch Volley Speed-MPH (Pop)',
+                    'Firepower (0-100)'
+                ]
 
-                # Display comparison table
-                st.subheader("Comparison Table")
-                st.dataframe(comparison_df[['Paddle'] + comparison_features])
+                # Filter default features to only include those that exist in the dataframe
+                available_default_features = [f for f in default_features if f in self.numeric_cols]
 
-                # Create and display radar chart
-                st.subheader("Radar Chart Comparison")
-                paddle_values = {}
-                for paddle in paddles:
-                    values = {}
-                    for f in comparison_features:
-                        values[f] = self.df[self.df['Paddle'] == paddle][f].values[0]
-                    paddle_values[paddle] = values
+                # Select features to compare
+                comparison_features = st.multiselect(
+                    "Select features to compare",
+                    options=self.numeric_cols,
+                    default=available_default_features
+                )
 
-                radar_fig = self.create_radar_chart(paddle_values)
-                st.pyplot(radar_fig, use_container_width=False)
+                if comparison_features:
+                    comparison_df = self.compare_paddles(paddles, comparison_features)
+
+                    # Display comparison table
+                    st.subheader("Comparison Table")
+                    st.dataframe(comparison_df[['Paddle'] + comparison_features])
+
+                    # Create and display radar chart
+                    st.subheader("Radar Chart Comparison")
+                    paddle_values = {}
+                    for paddle in paddles:
+                        values = {}
+                        for f in comparison_features:
+                            values[f] = self.df[self.df['Paddle'] == paddle][f].values[0]
+                        paddle_values[paddle] = values
+
+                    radar_fig = self.create_radar_chart(paddle_values)
+                    st.pyplot(radar_fig, use_container_width=False)
 
     def show_custom_analysis(self):
         """Display custom analysis page with filtering options"""
