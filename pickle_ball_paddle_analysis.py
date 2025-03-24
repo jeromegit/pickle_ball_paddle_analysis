@@ -545,33 +545,74 @@ class PaddleAnalysis:
 
         # Select feature to visualize
         dist_feature = st.selectbox(
-            "Select feature to view distribution",
+            "Select feature to visualize",
             options=self.numeric_cols
         )
 
         if dist_feature:
-            dist_fig = self.plot_distribution(dist_feature)
-            st.pyplot(dist_fig, use_container_width=False)
+            st.subheader(f"Distribution of {dist_feature}")
+            
+            # Create a Plotly histogram with KDE
+            hist_fig = px.histogram(
+                self.df, 
+                x=dist_feature,
+                title=f"Distribution of {dist_feature}",
+                marginal="box",  # Add a box plot on the margin
+                height=500
+            )
+            
+            hist_fig.update_layout(
+                xaxis_title=dist_feature,
+                yaxis_title="Count",
+                bargap=0.1  # Add some gap between bars
+            )
+            
+            # Add a KDE curve
+            hist_fig.update_traces(opacity=0.7)
+            
+            # Display the plot
+            st.plotly_chart(hist_fig, use_container_width=True)
 
-        # Categorical analysis
-        st.subheader("Categorical Analysis")
-        col1, col2 = st.columns(2)
-
-        with col1:
+            # Categorical analysis
+            st.subheader(f"{dist_feature} by Category")
+            
+            # Select categorical feature
             cat_feature = st.selectbox(
                 "Select categorical feature",
                 options=self.categorical_cols
             )
-
-        with col2:
-            num_feature = st.selectbox(
-                "Select numeric feature to analyze",
-                options=self.numeric_cols
-            )
-
-        if cat_feature and num_feature:
-            cat_fig = self.plot_categorical_analysis(cat_feature, num_feature)
-            st.pyplot(cat_fig, use_container_width=False)
+            
+            if cat_feature:
+                # Count values in each category
+                cat_counts = self.df[cat_feature].value_counts()
+                valid_cats = cat_counts[cat_counts >= 3].index.tolist()
+                
+                if valid_cats:
+                    # Filter data to only include categories with enough data
+                    filtered_data = self.df[self.df[cat_feature].isin(valid_cats)]
+                    
+                    # Create a Plotly box plot
+                    box_fig = px.box(
+                        filtered_data,
+                        x=cat_feature,
+                        y=dist_feature,
+                        color=cat_feature,
+                        title=f"{dist_feature} by {cat_feature}",
+                        points="all",  # Show all data points
+                        height=600
+                    )
+                    
+                    box_fig.update_layout(
+                        xaxis_title=cat_feature,
+                        yaxis_title=dist_feature,
+                        xaxis_tickangle=-45,
+                        showlegend=False
+                    )
+                    
+                    # Display the plot
+                    st.plotly_chart(box_fig, use_container_width=True)
+                else:
+                    st.warning(f"Not enough data in categories of {cat_feature} for meaningful analysis.")
 
     def show_paddle_comparison(self):
         """Display paddle comparison page"""
