@@ -8,6 +8,16 @@ import plotly.graph_objects as go
 
 
 class PaddleAnalysis:
+    """Class for analyzing pickleball paddle data"""
+    
+    # Page name constants
+    PAGE_DATA_OVERVIEW = "Data Overview"
+    PAGE_PRICE_ANALYSIS = "Price Analysis"
+    PAGE_CORRELATION = "Correlation Analysis"
+    PAGE_DISTRIBUTION = "Feature Distribution"
+    PAGE_COMPARISON = "Paddle Comparison"
+    PAGE_CUSTOM = "Custom Analysis"
+    
     def __init__(self, file_path="john_knew_pickleball_paddle_database.tsv"):
         """Initialize the paddle analysis app"""
         self.df = self.load_data(file_path)
@@ -315,31 +325,37 @@ class PaddleAnalysis:
         # Sidebar for navigation
         page = st.sidebar.selectbox(
             "Choose Analysis...",
-            ["Data Overview", "Price Analysis", "Correlation Analysis", "Feature Distribution",
-             "Paddle Comparison", "Custom Analysis"]
+            [
+                self.PAGE_DATA_OVERVIEW,
+                self.PAGE_PRICE_ANALYSIS,
+                self.PAGE_CORRELATION,
+                self.PAGE_DISTRIBUTION,
+                self.PAGE_COMPARISON,
+                self.PAGE_CUSTOM
+            ]
         )
 
-        if page == "Data Overview":
+        if page == self.PAGE_DATA_OVERVIEW:
             self.show_data_overview()
             
-        elif page == "Price Analysis":
+        elif page == self.PAGE_PRICE_ANALYSIS:
             self.show_price_analysis()
 
-        elif page == "Correlation Analysis":
+        elif page == self.PAGE_CORRELATION:
             self.show_correlation_analysis()
 
-        elif page == "Feature Distribution":
+        elif page == self.PAGE_DISTRIBUTION:
             self.show_feature_distribution()
 
-        elif page == "Paddle Comparison":
+        elif page == self.PAGE_COMPARISON:
             self.show_paddle_comparison()
 
-        elif page == "Custom Analysis":
+        elif page == self.PAGE_CUSTOM:
             self.show_custom_analysis()
 
     def show_data_overview(self):
         """Display data overview page"""
-        st.header("Data Overview")
+        st.header(self.PAGE_DATA_OVERVIEW)
         
         # General dataset statistics
         st.subheader("Dataset Statistics")
@@ -425,7 +441,7 @@ class PaddleAnalysis:
 
     def show_price_analysis(self):
         """Display price analysis page with interactive Plotly charts"""
-        st.header("Price Analysis")
+        st.header(self.PAGE_PRICE_ANALYSIS)
         
         # Price distribution by company
         st.subheader("Price Distribution Across Companies")
@@ -480,17 +496,17 @@ class PaddleAnalysis:
             ('Count', 'count')
         ]).reset_index().sort_values('Average Price', ascending=False)
         
-        # Format the price columns
+        # Format the price columns - round to nearest integer
         for col in price_stats.columns:
             if col != 'Company' and col != 'Count':
-                price_stats[col] = price_stats[col].round(2)
+                price_stats[col] = price_stats[col].apply(lambda x: int(round(x)))
         
         # Display the statistics
         st.dataframe(price_stats, use_container_width=True)
 
     def show_correlation_analysis(self):
         """Display correlation analysis page"""
-        st.header("Correlation Analysis")
+        st.header(self.PAGE_CORRELATION)
 
         # Feature selection for correlation
         features = st.multiselect(
@@ -525,7 +541,7 @@ class PaddleAnalysis:
 
     def show_feature_distribution(self):
         """Display feature distribution page"""
-        st.header("Feature Distribution")
+        st.header(self.PAGE_DISTRIBUTION)
 
         # Select feature to visualize
         dist_feature = st.selectbox(
@@ -559,7 +575,7 @@ class PaddleAnalysis:
 
     def show_paddle_comparison(self):
         """Display paddle comparison page"""
-        st.header("Paddle Comparison")
+        st.header(self.PAGE_COMPARISON)
 
         # Get all unique companies
         companies = sorted(self.df['Company'].unique())
@@ -665,7 +681,7 @@ class PaddleAnalysis:
 
     def show_custom_analysis(self):
         """Display custom analysis page with filtering options"""
-        st.header("Custom Analysis")
+        st.header(self.PAGE_CUSTOM)
 
         # Filtering options
         st.subheader("Filter Data")
